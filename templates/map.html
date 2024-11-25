@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Availability</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh; 
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([32.748615611210546, -97.08889801033872], 13); 
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+/* test marker 
+        L.marker([32.748615611210546, -97.08889801033872])
+    .addTo(map)
+    .bindPopup('Test Marker').openPopup();
+*/
+var placeholderMarker = L.marker([32.748615611210546, -97.08889801033872])
+    .addTo(map)
+    .bindPopup('Processing parking availability data...').openPopup();
+
+
+    var eventSource = new EventSource('/detect');
+    
+    eventSource.onmessage = function(event) {
+        console.log("Received event:", event.data); // Debug incoming data
+    try {
+        var data = JSON.parse(event.data);
+        console.log('Parsed Data:', data);
+
+        if (placeholderMarker) {
+            map.removeLayer(placeholderMarker);
+        }
+        var marker = L.marker([data.latitude, data.longitude]).addTo(map);
+        setTimeout(() => {
+            marker.bindPopup(`Total Spaces: ${data.total_spaces}<br>Free Spaces: ${data.free_spaces}`).openPopup();
+        }, 2000);
+    } catch (err) {
+        console.error("Error parsing data:", err);
+    }
+};
+
+eventSource.onerror = function(error) {
+    console.error('Error with event source:', error);
+};
+
+fetch('/latest')
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            var cachedData = data.data;
+            console.log('Cached Parking Data:', cachedData);
+            L.marker([cachedData.latitude, cachedData.longitude])
+                .addTo(map)
+                .bindPopup(`Total Spaces: ${cachedData.total_spaces}<br>Free Spaces: ${cachedData.free_spaces}`).openPopup();
+        } else {
+            console.error('No cached data:', data.message);
+        }
+    })
+    .catch(error => console.error('Error fetching cached parking data:', error));
+
+    </script>
+</body>
+</html>
